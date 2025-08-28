@@ -105,6 +105,38 @@ class MockDatabaseService {
         return await this.insertItem(item);
     }
 
+    async upsertItem(item) {
+        // Check if item with same name exists (case-insensitive)
+        const existingIndex = this.items.findIndex(
+            existing => existing.name.toLowerCase() === item.name.toLowerCase()
+        );
+        
+        if (existingIndex !== -1) {
+            // Update existing item
+            const updatedItem = {
+                ...this.items[existingIndex],
+                name: item.name.trim().toLowerCase(),
+                category: item.category.trim().toLowerCase(),
+                price: item.price,
+                updated_at: new Date().toISOString(),
+            };
+            this.items[existingIndex] = updatedItem;
+            return updatedItem;
+        } else {
+            // Insert new item
+            const newItem = {
+                id: this.items.length + 1,
+                name: item.name.trim().toLowerCase(),
+                category: item.category.trim().toLowerCase(),
+                price: item.price,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
+            this.items.push(newItem);
+            return newItem;
+        }
+    }
+
     async getStats() {
         const total = this.items.length;
         const averagePrice = total > 0 ? this.items.reduce((acc, item) => acc + item.price, 0) / total : 0;

@@ -41,7 +41,7 @@ class DatabaseService {
                 `
                 CREATE TABLE IF NOT EXISTS items (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
+                    name TEXT NOT NULL UNIQUE,
                     category TEXT NOT NULL,
                     price REAL NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -75,8 +75,8 @@ class DatabaseService {
 
             for (const item of items) {
                 await this.insertItem({
-                    name: item.name,
-                    category: item.category,
+                    name: item.name.trim().toLowerCase(),
+                    category: item.category.trim().toLowerCase(),
                     price: item.price,
                 });
             }
@@ -95,7 +95,11 @@ class DatabaseService {
                 VALUES (?, ?, ?)
             `);
 
-            stmt.run([item.name, item.category, item.price], function (err) {
+            const name = item.name.trim().toLowerCase();
+            const category = item.category.trim().toLowerCase();
+            const price = item.price;
+
+            stmt.run([name, category, price], function (err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -163,9 +167,24 @@ class DatabaseService {
         });
     }
 
-    async createItem(item) {
-        const newItem = await this.insertItem(item);
-        return newItem;
+    async upsertItem(item) {
+        const name = item.name.trim().toLowerCase();
+        const category = item.category.trim().toLowerCase();
+        const price = item.price;
+        return new Promise((resolve, reject) => {
+            const query = `
+                INSERT INTO items (name, category, price)
+                VALUES (?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    category = excluded.category,
+                    price = excluded.price,
+                    updated_at = CURRENT_TIMESTAMP;
+            `;
+            this.db.run(query, [name, category, price], function (err) {
+                if (err) return reject(err);
+                resolve({ id: this.lastID, ...item });
+            });
+        });
     }
 
     async getStats() {

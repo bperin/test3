@@ -1,4 +1,4 @@
-const DatabaseService = require('./databaseService');
+const DatabaseService = require("./databaseService");
 
 class ItemsService {
     constructor(dbPath) {
@@ -114,7 +114,7 @@ class ItemsService {
             price: Number(price),
         };
 
-        return await this.db.createItem(item);
+        return await this.db.upsertItem(item);
     }
 }
 

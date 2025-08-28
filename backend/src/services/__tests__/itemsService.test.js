@@ -239,7 +239,9 @@ describe("ItemsService", () => {
 
             const item = await itemsService.createItem(newItemData);
 
-            expect(item).toMatchObject(newItemData);
+            expect(item.name).toBe("new product");
+            expect(item.category).toBe("test");
+            expect(item.price).toBe(29.99);
             expect(item).toHaveProperty("id");
             expect(typeof item.id).toBe("number");
         });
@@ -255,20 +257,22 @@ describe("ItemsService", () => {
             const allItems = await itemsService.getAllItems();
 
             expect(allItems).toHaveLength(6);
-            expect(allItems[5]).toMatchObject(newItemData);
+            expect(allItems[5].name).toBe("new product");
+            expect(allItems[5].category).toBe("test");
+            expect(allItems[5].price).toBe(29.99);
         });
 
         test("trims whitespace from name and category", async () => {
             const newItemData = {
                 name: "  Trimmed Product  ",
                 category: "  Trimmed Category  ",
-                price: 29.99,
+                price: 19.99,
             };
 
             const item = await itemsService.createItem(newItemData);
 
-            expect(item.name).toBe("Trimmed Product");
-            expect(item.category).toBe("Trimmed Category");
+            expect(item.name).toBe("trimmed product");
+            expect(item.category).toBe("trimmed category");
         });
 
         test("validates required name field", async () => {
