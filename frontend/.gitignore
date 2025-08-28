@@ -8,4 +8,7 @@ coverage/
 # Coverage reports
 coverage-final.json
 clover.xml
+
+# Package lock files
+package-lock.json
 lcov.info
