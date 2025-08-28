@@ -27,7 +27,7 @@ describe("Items Routes Integration", () => {
         app = express();
         app.use(express.json());
         app.use("/api/items", createItemsRouter(mockItemsService, mockStatsService));
-        
+
         // Error handler
         app.use((err, req, res, next) => {
             res.status(err.status || 500).json({ error: err.message });
@@ -56,9 +56,7 @@ describe("Items Routes Integration", () => {
             mockItemsService.searchItems.mockResolvedValue(searchResults);
             mockItemsService.paginateItems.mockResolvedValue(paginatedResults);
 
-            const response = await request(app)
-                .get("/api/items?q=electronics&page=1&limit=10")
-                .expect(200);
+            const response = await request(app).get("/api/items?q=electronics&page=1&limit=10").expect(200);
 
             expect(mockItemsService.searchItems).toHaveBeenCalledWith("electronics");
             expect(mockItemsService.paginateItems).toHaveBeenCalledWith(searchResults, "1", "10");
@@ -99,10 +97,7 @@ describe("Items Routes Integration", () => {
             mockItemsService.createItem.mockResolvedValue(createdItem);
             mockStatsService.invalidateCache.mockResolvedValue();
 
-            const response = await request(app)
-                .post("/api/items")
-                .send(newItem)
-                .expect(201);
+            const response = await request(app).post("/api/items").send(newItem).expect(201);
 
             expect(mockItemsService.createItem).toHaveBeenCalledWith(newItem);
             expect(mockStatsService.invalidateCache).toHaveBeenCalled();
@@ -114,10 +109,7 @@ describe("Items Routes Integration", () => {
             error.status = 400;
             mockItemsService.createItem.mockRejectedValue(error);
 
-            const response = await request(app)
-                .post("/api/items")
-                .send({ category: "Test", price: 10 })
-                .expect(400);
+            const response = await request(app).post("/api/items").send({ category: "Test", price: 10 }).expect(400);
 
             expect(response.body).toEqual({ error: "Name is required" });
         });
@@ -129,10 +121,7 @@ describe("Items Routes Integration", () => {
             mockItemsService.createItem.mockResolvedValue(createdItem);
             mockStatsService.invalidateCache.mockRejectedValue(new Error("Cache error"));
 
-            const response = await request(app)
-                .post("/api/items")
-                .send(newItem)
-                .expect(201);
+            const response = await request(app).post("/api/items").send(newItem).expect(201);
 
             expect(response.body).toEqual(createdItem);
         });
@@ -140,10 +129,7 @@ describe("Items Routes Integration", () => {
         test("handles service errors", async () => {
             mockItemsService.createItem.mockRejectedValue(new Error("Service error"));
 
-            await request(app)
-                .post("/api/items")
-                .send({ name: "Test", category: "Test", price: 10 })
-                .expect(500);
+            await request(app).post("/api/items").send({ name: "Test", category: "Test", price: 10 }).expect(500);
         });
     });
 });

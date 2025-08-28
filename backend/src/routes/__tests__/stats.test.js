@@ -118,7 +118,7 @@ describe("Stats API Routes", () => {
         });
 
         test("calculates stats for items with decimal prices", async () => {
-            const expectedAverage = (10.99 + 20.50) / 2;
+            const expectedAverage = (10.99 + 20.5) / 2;
             mockStatsService.getStats.mockReturnValue({
                 total: 2,
                 averagePrice: expectedAverage,
@@ -139,7 +139,7 @@ describe("Stats API Routes", () => {
             });
 
             await request(app).get("/api/stats").expect(200);
-            
+
             expect(mockStatsService.getStats).toHaveBeenCalled();
         });
     });
