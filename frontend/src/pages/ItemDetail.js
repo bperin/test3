@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useData } from "../state/DataContext";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Skeleton } from "../components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 
 function ItemDetail() {
     const { id } = useParams();
@@ -17,9 +23,7 @@ function ItemDetail() {
             try {
                 setLoading(true);
                 setError(null);
-
                 const itemData = await fetchItemById(id, abortController);
-
                 if (!abortController.signal.aborted) {
                     setItem(itemData);
                 }
@@ -39,58 +43,97 @@ function ItemDetail() {
         return () => abortController.abort();
     }, [id, fetchItemById]);
 
-    if (loading) return <div className="p-4">Loading...</div>;
-
-    if (error) {
+    if (loading) {
         return (
-            <div className="p-4">
-                <div className="text-red-600 mb-4">Error: {error}</div>
-                <button onClick={() => navigate("/")} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                    Back to Items
-                </button>
+            <div className="container mx-auto p-6 space-y-6">
+                <Skeleton className="h-10 w-48 mb-4" />
+                <Card>
+                    <CardHeader>
+                        <Skeleton className="h-8 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <Skeleton className="h-6 w-24" />
+                                <Skeleton className="h-5 w-full" />
+                                <Skeleton className="h-5 w-full" />
+                                <Skeleton className="h-5 w-3/4" />
+                            </div>
+                            <div className="space-y-2">
+                                <Skeleton className="h-6 w-24" />
+                                <Skeleton className="h-5 w-full" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         );
     }
 
-    if (!item) return <div className="p-4">Item not found</div>;
+    if (error) {
+        return (
+            <div className="container mx-auto p-6">
+                <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+                <Button onClick={() => navigate("/")} variant="outline" className="mt-4 gap-2">
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Items
+                </Button>
+            </div>
+        );
+    }
+
+    if (!item) {
+        return (
+            <div className="container mx-auto p-6 text-center">
+                <p className="text-muted-foreground">Item not found.</p>
+                <Button onClick={() => navigate("/")} variant="outline" className="mt-4 gap-2">
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Items
+                </Button>
+            </div>
+        );
+    }
 
     return (
-        <div className="max-w-2xl mx-auto p-6">
-            <div className="mb-4">
-                <button onClick={() => navigate("/")} className="text-blue-500 hover:text-blue-700 mb-4">
-                    ← Back to Items
-                </button>
+        <div className="container mx-auto p-6 space-y-6">
+            <div>
+                <Button onClick={() => navigate("/")} variant="outline" size="sm" className="gap-2">
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Items
+                </Button>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-white">{item.name}</h1>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Details</h3>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-3xl">{item.name}</CardTitle>
+                    <CardDescription>
+                        <Badge variant="secondary">{item.category}</Badge>
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <p className="text-gray-600 dark:text-gray-400">
-                                <strong>Category:</strong> {item.category}
-                            </p>
-                            <p className="text-gray-600 dark:text-gray-400">
+                            <h3 className="text-lg font-semibold text-foreground">Details</h3>
+                            <p className="text-muted-foreground">
                                 <strong>Price:</strong> ${item.price}
                             </p>
-                            {item.description && (
-                                <p className="text-gray-600 dark:text-gray-400">
-                                    <strong>Description:</strong> {item.description}
-                                </p>
-                            )}
+                            {item.description && <p className="text-muted-foreground">{item.description}</p>}
                         </div>
-                    </div>
 
-                    {item.id && (
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Item ID</h3>
-                            <p className="text-gray-600 dark:text-gray-400 font-mono">{item.id}</p>
-                        </div>
-                    )}
-                </div>
-            </div>
+                        {item.id && (
+                            <div className="space-y-2">
+                                <h3 className="text-lg font-semibold text-foreground">Item ID</h3>
+                                <p className="text-muted-foreground font-mono text-sm bg-muted p-2 rounded-md">{item.id}</p>
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

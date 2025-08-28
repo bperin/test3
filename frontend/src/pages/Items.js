@@ -83,7 +83,7 @@ function Items() {
                     <h1 className="text-3xl font-bold">Items</h1>
                     <p className="text-muted-foreground">Browse and search through your items collection</p>
                 </div>
-                <Button onClick={() => setShowAddForm(!showAddForm)} className="gap-2">
+                <Button onClick={() => setShowAddForm((prev) => !prev)} className="gap-2">
                     <Plus className="h-4 w-4" />
                     {showAddForm ? "Cancel" : "Add Item"}
                 </Button>
