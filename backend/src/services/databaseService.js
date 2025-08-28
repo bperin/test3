@@ -172,23 +172,41 @@ class DatabaseService {
         if (!this.db) {
             throw new Error("Database not initialized");
         }
-        
+
+        const statsQuery = `
+            SELECT
+                COUNT(*) as totalItems,
+                COUNT(DISTINCT category) as totalCategories,
+                AVG(price) as averagePrice,
+                MIN(price) as minPrice,
+                MAX(price) as maxPrice
+            FROM items;
+        `;
+
+        const categoryQuery = `
+            SELECT LOWER(category) as category, COUNT(*) as count
+            FROM items
+            GROUP BY LOWER(category)
+            ORDER BY count DESC;
+        `;
+
         return new Promise((resolve, reject) => {
-            this.db.get(`
-                SELECT 
-                    COUNT(*) as total,
-                    AVG(price) as averagePrice
-                FROM items
-            `, (err, row) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve({
-                        total: row.total,
-                        averagePrice: row.averagePrice || 0,
-                        lastUpdated: new Date().toISOString()
+            this.db.serialize(() => {
+                let stats = {};
+                this.db
+                    .get(statsQuery, [], (err, row) => {
+                        if (err) return reject(err);
+                        stats = { ...stats, ...row };
+                    })
+                    .all(categoryQuery, [], (err, rows) => {
+                        if (err) return reject(err);
+                        stats.categoryBreakdown = rows.reduce((acc, row) => {
+                            acc[row.category] = row.count;
+                            return acc;
+                        }, {});
+                        stats.lastUpdated = new Date().toISOString();
+                        resolve(stats);
                     });
-                }
             });
         });
     }
@@ -197,7 +215,7 @@ class DatabaseService {
         if (this.db) {
             return new Promise((resolve) => {
                 this.db.close((err) => {
-                    if (err) console.error('Error closing database:', err);
+                    if (err) console.error("Error closing database:", err);
                     resolve();
                 });
             });
