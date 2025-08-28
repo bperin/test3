@@ -12,7 +12,10 @@
   "scripts": {
     "start": "cross-env PORT=3000 react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test"
+    "test": "react-scripts test",
+    "test:coverage": "react-scripts test --coverage --watchAll=false",
+    "test:verbose": "react-scripts test --verbose --watchAll=false",
+    "test:ci": "react-scripts test --coverage --verbose --watchAll=false"
   },
   "browserslist": {
     "production": [
