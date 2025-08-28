@@ -2,3 +2,4 @@
 
 # Package lock files
 package-lock.json
+*.db
