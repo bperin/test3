@@ -39,11 +39,12 @@ res.json(items); // Always returns everything
 ```
 
 **Problems with file-based approach**:
-- **Blocking I/O**: `fs.readFileSync` blocks the event loop on every request
-- **No concurrency**: Read/write operations can't happen simultaneously
-- **Memory inefficient**: Entire dataset loaded into memory repeatedly
-- **No ACID properties**: Race conditions during concurrent writes
-- **Doesn't scale**: Performance degrades linearly with file size
+
+-   **Blocking I/O**: `fs.readFileSync` blocks the event loop on every request
+-   **No concurrency**: Read/write operations can't happen simultaneously
+-   **Memory inefficient**: Entire dataset loaded into memory repeatedly
+-   **No ACID properties**: Race conditions during concurrent writes
+-   **Doesn't scale**: Performance degrades linearly with file size
 
 **SQLite database solution**:
 
@@ -56,7 +57,7 @@ async getAllItems(page = 1, limit = 10) {
         [limit, offset]
     );
     const total = await this.db.get('SELECT COUNT(*) as count FROM items');
-    
+
     return {
         data: items,
         pagination: {
@@ -83,6 +84,7 @@ results = items.filter((item) => item.name.toLowerCase().includes(q.toLowerCase(
 ```
 
 **Problems**:
+
 -   File I/O on every search request
 -   Calls `q.toLowerCase()` for every item in the loop
 -   No category search capability
@@ -93,27 +95,27 @@ results = items.filter((item) => item.name.toLowerCase().includes(q.toLowerCase(
 ```javascript
 async searchItems(query, page = 1, limit = 10) {
     if (!query) return this.getAllItems(page, limit);
-    
+
     const offset = (page - 1) * limit;
     const searchTerm = `%${query}%`;
-    
+
     // Database handles the filtering efficiently
     const items = await this.db.all(`
-        SELECT * FROM items 
-        WHERE name LIKE ? OR category LIKE ? 
+        SELECT * FROM items
+        WHERE name LIKE ? OR category LIKE ?
         ORDER BY id LIMIT ? OFFSET ?
     `, [searchTerm, searchTerm, limit, offset]);
-    
+
     const total = await this.db.get(`
-        SELECT COUNT(*) as count FROM items 
+        SELECT COUNT(*) as count FROM items
         WHERE name LIKE ? OR category LIKE ?
     `, [searchTerm, searchTerm]);
-    
+
     return {
         data: items,
         pagination: {
             page: parseInt(page),
-            limit: parseInt(limit), 
+            limit: parseInt(limit),
             total: total.count,
             totalPages: Math.ceil(total.count / limit)
         }
@@ -122,6 +124,7 @@ async searchItems(query, page = 1, limit = 10) {
 ```
 
 **Database advantages**:
+
 -   **Indexed searches**: SQLite can use indexes for LIKE operations
 -   **Pagination at DB level**: Only fetch needed rows
 -   **No file I/O**: Data stays in database buffer pool
@@ -132,6 +135,7 @@ async searchItems(query, page = 1, limit = 10) {
 `GET /api/stats` was recalculating statistics on every request by reading and parsing the entire file.
 
 **Original file-based approach**:
+
 ```javascript
 // Read entire file and calculate stats on every request
 const data = fs.readFileSync(DATA_PATH, "utf8");
@@ -141,11 +145,12 @@ const averagePrice = items.reduce((sum, item) => sum + item.price, 0) / total;
 ```
 
 **Database-optimized approach**:
+
 ```javascript
 // Efficient aggregation queries with caching
 async getStats() {
     const stats = await this.db.get(`
-        SELECT 
+        SELECT
             COUNT(*) as total,
             AVG(price) as averagePrice,
             datetime('now') as lastUpdated
@@ -156,6 +161,7 @@ async getStats() {
 ```
 
 **Benefits**:
+
 -   **Aggregation functions**: Database calculates stats efficiently
 -   **Smart caching**: Results cached until data changes
 -   **No file parsing**: Direct calculation from indexed data
@@ -166,6 +172,7 @@ async getStats() {
 ### Database Migration Strategy
 
 **Why SQLite over file storage**:
+
 -   **Concurrency**: Multiple read/write operations without blocking
 -   **ACID compliance**: Transactions ensure data consistency
 -   **Performance**: Indexed queries vs. full file scans
@@ -173,6 +180,7 @@ async getStats() {
 -   **Standard SQL**: Familiar query interface
 
 **Note**: While SQLite is overkill for this small dataset, it demonstrates the **correct architectural pattern** for production systems. File-based storage fundamentally doesn't scale due to:
+
 -   Blocking I/O operations
 -   No concurrent access control
 -   Linear performance degradation
@@ -201,6 +209,7 @@ In production, you'd want Redis for distributed caching, but this in-memory appr
 ### Performance Impact
 
 **Database vs. File Storage**:
+
 -   **Items endpoint**: 15x faster (indexed queries vs. file parsing)
 -   **Stats endpoint**: 50x faster (SQL aggregation + caching vs. file processing)
 -   **Search operations**: 25x faster (database indexes vs. linear scan)
@@ -208,6 +217,7 @@ In production, you'd want Redis for distributed caching, but this in-memory appr
 -   **Memory usage**: Constant (database buffer pool vs. repeated file loading)
 
 **Scalability comparison**:
+
 -   **File approach**: O(n) performance degradation with dataset size
 -   **Database approach**: O(log n) with proper indexing
 
@@ -222,6 +232,7 @@ Added comprehensive test suite with 77 tests covering:
 -   **Edge cases and validation**: Pagination, search, data integrity
 
 **Test architecture**:
+
 -   **Route tests**: Focus on HTTP concerns (status codes, request/response)
 -   **Service tests**: Focus on business logic (validation, calculations)
 -   **Database tests**: Focus on data persistence and queries
@@ -262,15 +273,44 @@ frontend/src/
 The migration from file-based storage to SQLite database eliminates fundamental scalability issues:
 
 **Technical debt eliminated**:
+
 -   Blocking synchronous I/O operations
 -   Race conditions in concurrent access
 -   Linear performance degradation
 -   Memory inefficiency with repeated file parsing
 
 **Production-ready patterns implemented**:
+
 -   Async database operations with connection pooling
 -   Indexed queries for efficient data retrieval
 -   ACID transactions for data consistency
 -   Proper separation of concerns with service layer architecture
 
 While SQLite is overkill for this dataset size, it demonstrates the **correct architectural approach** that scales to production workloads.
+
+### Upsert Logic
+
+The `createItem` method now implements an "upsert" (update or insert) logic. If an item with the same name already exists, it will be updated; otherwise, a new item will be created. This is handled by the `upsertItem` method in the `databaseService`, which uses SQLite's `ON CONFLICT` clause.
+
+```javascript
+// Upsert logic in databaseService.js
+async upsertItem(item) {
+    return new Promise((resolve, reject) => {
+        const { name, category, price } = item;
+        const query = `
+            INSERT INTO items (name, category, price)
+            VALUES (?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                category = excluded.category,
+                price = excluded.price,
+                updated_at = CURRENT_TIMESTAMP;
+        `;
+        this.db.run(query, [name, category, price], function (err) {
+            if (err) return reject(err);
+            resolve({ id: this.lastID, ...item });
+        });
+    });
+}
+```
+
+Alternatively, we could have chosen to error out if an item with the same name already exists. This would be a valid design choice, but the upsert logic is more robust for this particular application.
