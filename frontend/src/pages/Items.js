@@ -6,14 +6,16 @@ function Items() {
   const { items, fetchItems } = useData();
 
   useEffect(() => {
-    let active = true;
+    const abortController = new AbortController();
 
-    // Intentional bug: setState called after component unmount if request is slow
-    fetchItems().catch(console.error);
+    fetchItems(abortController).catch(err => {
+      if (err.name !== 'AbortError') {
+        console.error(err);
+      }
+    });
 
-    // Clean‑up to avoid memory leak (candidate should implement)
     return () => {
-      active = false;
+      abortController.abort();
     };
   }, [fetchItems]);
 
