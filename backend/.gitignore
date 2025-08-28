@@ -1,1 +1,16 @@
 node_modules
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# Jest
+__tests__/
+*.test.js
+*.spec.js
+
+# Coverage reports
+coverage-final.json
+clover.xml
+lcov.info 
