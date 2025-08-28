@@ -33,8 +33,9 @@ router.get('/', async (req, res, next) => {
     }
 
     // Calculate pagination
-    const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.max(1, Math.min(100, parseInt(limit))); // Cap at 100
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const parsedLimit = parseInt(limit);
+    const limitNum = Math.max(1, Math.min(100, isNaN(parsedLimit) ? 10 : parsedLimit)); // Cap at 100
     const offset = (pageNum - 1) * limitNum;
     const totalItems = results.length;
     const totalPages = Math.ceil(totalItems / limitNum);
