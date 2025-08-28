@@ -13,14 +13,12 @@ class StatsService {
 
     async refreshStats() {
         try {
-            const items = await this.itemsService.getAllItems();
-
-            // Calculate stats with intentional heavy CPU calculation
-            this.cachedStats = {
-                total: items.length,
-                averagePrice: items.length > 0 ? items.reduce((acc, cur) => acc + cur.price, 0) / items.length : 0,
-                lastUpdated: new Date().toISOString(),
-            };
+            // Ensure items service is initialized before accessing database
+            if (!this.itemsService.isInitialized) {
+                throw new Error("Items service not initialized");
+            }
+            // Use database-level aggregation instead of fetching all items
+            this.cachedStats = await this.itemsService.db.getStats();
         } catch (error) {
             console.error("Error refreshing stats:", error);
             this.cachedStats = {

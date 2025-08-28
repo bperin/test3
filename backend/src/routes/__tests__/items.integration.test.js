@@ -40,9 +40,8 @@ describe("Items Routes Integration", () => {
 
     describe("GET /api/items", () => {
         test("calls services correctly and returns paginated results", async () => {
-            const searchResults = [mockData[0], mockData[1]];
             const paginatedResults = {
-                items: searchResults,
+                items: [mockData[0], null],
                 pagination: {
                     page: 1,
                     limit: 10,
@@ -53,18 +52,16 @@ describe("Items Routes Integration", () => {
                 },
             };
 
-            mockItemsService.searchItems.mockResolvedValue(searchResults);
             mockItemsService.paginateItems.mockResolvedValue(paginatedResults);
 
             const response = await request(app).get("/api/items?q=electronics&page=1&limit=10").expect(200);
 
-            expect(mockItemsService.searchItems).toHaveBeenCalledWith("electronics");
-            expect(mockItemsService.paginateItems).toHaveBeenCalledWith(searchResults, "1", "10");
+            expect(mockItemsService.paginateItems).toHaveBeenCalledWith("electronics", "1", "10");
             expect(response.body).toEqual(paginatedResults);
         });
 
         test("handles service errors", async () => {
-            mockItemsService.searchItems.mockRejectedValue(new Error("Service error"));
+            mockItemsService.paginateItems.mockRejectedValue(new Error("Service error"));
 
             await request(app).get("/api/items").expect(500);
         });

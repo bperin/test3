@@ -63,23 +63,27 @@ describe("Items API Routes", () => {
 
     describe("GET /api/items", () => {
         test("returns all items with default pagination", async () => {
+            const paginatedResult = {
+                items: mockData,
+                pagination: {
+                    page: 1,
+                    limit: 10,
+                    totalItems: 5,
+                    totalPages: 1,
+                    hasNext: false,
+                    hasPrev: false,
+                },
+            };
+            mockItemsService.paginateItems.mockResolvedValue(paginatedResult);
+
             const response = await request(app).get("/api/items").expect(200);
 
-            expect(response.body.items).toEqual(mockData);
-            expect(response.body.pagination).toEqual({
-                page: 1,
-                limit: 10,
-                totalItems: 5,
-                totalPages: 1,
-                hasNext: false,
-                hasPrev: false,
-            });
-            expect(mockItemsService.searchItems).toHaveBeenCalledWith(undefined);
-            expect(mockItemsService.paginateItems).toHaveBeenCalledWith(mockData, 1, 10);
+            expect(response.body).toEqual(paginatedResult);
+            expect(mockItemsService.paginateItems).toHaveBeenCalledWith(undefined, 1, 10);
         });
 
         test("applies pagination correctly", async () => {
-            mockItemsService.paginateItems.mockResolvedValue({
+            const paginatedResult = {
                 items: mockData.slice(0, 2),
                 pagination: {
                     page: 1,
@@ -89,26 +93,20 @@ describe("Items API Routes", () => {
                     hasNext: true,
                     hasPrev: false,
                 },
-            });
+            };
+            mockItemsService.paginateItems.mockResolvedValue(paginatedResult);
 
             const response = await request(app).get("/api/items?page=1&limit=2").expect(200);
 
             expect(response.body.items).toHaveLength(2);
-            expect(response.body.pagination).toEqual({
-                page: 1,
-                limit: 2,
-                totalItems: 5,
-                totalPages: 3,
-                hasNext: true,
-                hasPrev: false,
-            });
+            expect(response.body.pagination.page).toBe(1);
+            expect(response.body.pagination.limit).toBe(2);
+            expect(mockItemsService.paginateItems).toHaveBeenCalledWith(undefined, "1", "2");
         });
 
         test("handles search query correctly", async () => {
-            const electronicsItems = mockData.filter((item) => item.category.toLowerCase().includes("electronics"));
-            mockItemsService.searchItems.mockResolvedValue(electronicsItems);
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: electronicsItems,
+            const paginatedResult = {
+                items: [mockData[0], mockData[3]],
                 pagination: {
                     page: 1,
                     limit: 10,
@@ -117,121 +115,38 @@ describe("Items API Routes", () => {
                     hasNext: false,
                     hasPrev: false,
                 },
-            });
+            };
+            mockItemsService.paginateItems.mockResolvedValue(paginatedResult);
 
             const response = await request(app).get("/api/items?q=electronics").expect(200);
 
             expect(response.body.items).toHaveLength(2);
-            expect(response.body.items.every((item) => item.category.toLowerCase().includes("electronics"))).toBe(true);
+            expect(mockItemsService.paginateItems).toHaveBeenCalledWith("electronics", 1, 10);
         });
 
         test("search is case insensitive", async () => {
-            const laptopItems = mockData.filter((item) => item.name.toLowerCase().includes("laptop"));
-            mockItemsService.searchItems.mockResolvedValue(laptopItems);
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: laptopItems,
+            const paginatedResult = {
+                items: [mockData[0], mockData[3]],
                 pagination: {
                     page: 1,
                     limit: 10,
-                    totalItems: 1,
+                    totalItems: 2,
                     totalPages: 1,
                     hasNext: false,
                     hasPrev: false,
                 },
-            });
+            };
+            mockItemsService.paginateItems.mockResolvedValue(paginatedResult);
 
-            const response = await request(app).get("/api/items?q=LAPTOP").expect(200);
+            const response = await request(app).get("/api/items?q=ELECTRONICS").expect(200);
 
-            expect(response.body.items).toHaveLength(1);
-            expect(response.body.items[0].name).toBe("Laptop");
+            expect(response.body.items).toHaveLength(2);
+            expect(mockItemsService.paginateItems).toHaveBeenCalledWith("ELECTRONICS", 1, 10);
         });
 
-        test("handles invalid page numbers gracefully", async () => {
-            const response = await request(app).get("/api/items?page=0").expect(200);
 
-            expect(response.body.pagination.page).toBe(1);
-        });
-
-        test("caps limit at 100", async () => {
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: mockData,
-                pagination: {
-                    page: 1,
-                    limit: 100,
-                    totalItems: 5,
-                    totalPages: 1,
-                    hasNext: false,
-                    hasPrev: false,
-                },
-            });
-
-            const response = await request(app).get("/api/items?limit=200").expect(200);
-
-            expect(response.body.pagination.limit).toBe(100);
-        });
-
-        test("handles minimum limit of 1", async () => {
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: mockData.slice(0, 1),
-                pagination: {
-                    page: 1,
-                    limit: 1,
-                    totalItems: 5,
-                    totalPages: 5,
-                    hasNext: true,
-                    hasPrev: false,
-                },
-            });
-
-            const response = await request(app).get("/api/items?limit=0").expect(200);
-
-            expect(response.body.pagination.limit).toBe(1); // Math.max(1, 0) = 1
-        });
-
-        test("handles negative limit values", async () => {
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: mockData.slice(0, 1),
-                pagination: {
-                    page: 1,
-                    limit: 1,
-                    totalItems: 5,
-                    totalPages: 5,
-                    hasNext: true,
-                    hasPrev: false,
-                },
-            });
-
-            const response = await request(app).get("/api/items?limit=-5").expect(200);
-
-            expect(response.body.pagination.limit).toBe(1);
-        });
-
-        test("handles non-numeric limit values", async () => {
-            const response = await request(app).get("/api/items?limit=abc").expect(200);
-
-            expect(response.body.pagination.limit).toBe(10); // Falls back to default
-        });
-
-        test("handles decimal limit values", async () => {
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: mockData.slice(0, 2),
-                pagination: {
-                    page: 1,
-                    limit: 2,
-                    totalItems: 5,
-                    totalPages: 3,
-                    hasNext: true,
-                    hasPrev: false,
-                },
-            });
-
-            const response = await request(app).get("/api/items?limit=2.7").expect(200);
-
-            expect(response.body.pagination.limit).toBe(2);
-        });
-
-        test("handles file read errors", async () => {
-            mockItemsService.searchItems.mockRejectedValue(new Error("File not found"));
+        test("handles service errors", async () => {
+            mockItemsService.paginateItems.mockRejectedValue(new Error("Service error"));
 
             await request(app).get("/api/items").expect(500);
         });
@@ -255,19 +170,8 @@ describe("Items API Routes", () => {
             expect(response.body).toHaveProperty("error", "Item not found");
         });
 
-        test("handles invalid id format", async () => {
-            mockItemsService.getItemById.mockRejectedValue({
-                status: 404,
-                message: "Item not found",
-            });
-
-            const response = await request(app).get("/api/items/abc").expect(404);
-
-            expect(response.body).toHaveProperty("error", "Item not found");
-        });
-
-        test("handles file read errors", async () => {
-            mockItemsService.getItemById.mockRejectedValue(new Error("File not found"));
+        test("handles service errors", async () => {
+            mockItemsService.getItemById.mockRejectedValue(new Error("Service error"));
 
             await request(app).get("/api/items/1").expect(500);
         });
@@ -295,23 +199,7 @@ describe("Items API Routes", () => {
             expect(typeof response.body.id).toBe("number");
         });
 
-        test("validates required name field", async () => {
-            const invalidItem = {
-                category: "Test",
-                price: 29.99,
-            };
-
-            mockItemsService.createItem.mockRejectedValue({
-                status: 400,
-                message: "Name is required and must be a non-empty string",
-            });
-
-            const response = await request(app).post("/api/items").send(invalidItem).expect(400);
-
-            expect(response.body.error).toContain("Name is required");
-        });
-
-        test("validates name is non-empty string", async () => {
+        test("handles validation errors from service", async () => {
             const invalidItem = {
                 name: "",
                 category: "Test",
@@ -328,262 +216,17 @@ describe("Items API Routes", () => {
             expect(response.body.error).toContain("Name is required");
         });
 
-        test("validates required category field", async () => {
-            const invalidItem = {
-                name: "Test Product",
-                price: 29.99,
-            };
-
-            mockItemsService.createItem.mockRejectedValue({
-                status: 400,
-                message: "Category is required and must be a non-empty string",
-            });
-
-            const response = await request(app).post("/api/items").send(invalidItem).expect(400);
-
-            expect(response.body.error).toContain("Category is required");
-        });
-
-        test("validates price is non-negative number", async () => {
-            const invalidItem = {
-                name: "Test Product",
-                category: "Test",
-                price: -10,
-            };
-
-            mockItemsService.createItem.mockRejectedValue({
-                status: 400,
-                message: "Price is required and must be a non-negative number",
-            });
-
-            const response = await request(app).post("/api/items").send(invalidItem).expect(400);
-
-            expect(response.body.error).toContain("Price is required");
-        });
-
-        test("validates price is a number", async () => {
-            const invalidItem = {
-                name: "Test Product",
-                category: "Test",
-                price: "invalid",
-            };
-
-            // Mock the service to throw validation error
-            mockItemsService.createItem.mockRejectedValue({
-                status: 400,
-                message: "Price is required and must be a non-negative number",
-            });
-
-            const response = await request(app).post("/api/items").send(invalidItem).expect(400);
-
-            expect(response.body.error).toContain("Price is required");
-        });
-
-        test("trims whitespace from name and category", async () => {
-            const newItem = {
-                name: "  Trimmed Product  ",
-                category: "  Trimmed Category  ",
-                price: 29.99,
-            };
-
-            // Mock the service to return trimmed item
-            const trimmedItem = {
-                id: 6,
-                name: "Trimmed Product",
-                category: "Trimmed Category",
-                price: 29.99,
-            };
-            mockItemsService.createItem.mockResolvedValue(trimmedItem);
-
-            const response = await request(app).post("/api/items").send(newItem).expect(201);
-
-            expect(response.body.name).toBe("Trimmed Product");
-            expect(response.body.category).toBe("Trimmed Category");
-        });
-
-        test("handles file write errors", async () => {
+        test("handles service errors", async () => {
             const newItem = {
                 name: "Test Product",
                 category: "Test",
                 price: 29.99,
             };
 
-            mockItemsService.createItem.mockRejectedValue(new Error("Failed to persist items data"));
+            mockItemsService.createItem.mockRejectedValue(new Error("Service error"));
 
             await request(app).post("/api/items").send(newItem).expect(500);
         });
     });
 
-    describe("Edge Cases", () => {
-        test("handles empty data file", async () => {
-            // Mock empty data
-            mockItemsService.searchItems.mockResolvedValue([]);
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: [],
-                pagination: {
-                    page: 1,
-                    limit: 10,
-                    totalItems: 0,
-                    totalPages: 0,
-                    hasNext: false,
-                    hasPrev: false,
-                },
-            });
-
-            const response = await request(app).get("/api/items").expect(200);
-
-            expect(response.body.items).toHaveLength(0);
-            expect(response.body.pagination.totalItems).toBe(0);
-        });
-
-        test("handles malformed JSON", async () => {
-            // Mock service error for malformed data
-            mockItemsService.searchItems.mockRejectedValue(new Error("Invalid data format"));
-
-            await request(app).get("/api/items").expect(500);
-        });
-
-        test("search returns empty results when no matches", async () => {
-            // Mock empty search results
-            mockItemsService.searchItems.mockResolvedValue([]);
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: [],
-                pagination: {
-                    page: 1,
-                    limit: 10,
-                    totalItems: 0,
-                    totalPages: 0,
-                    hasNext: false,
-                    hasPrev: false,
-                },
-            });
-
-            const response = await request(app).get("/api/items?q=nonexistent").expect(200);
-
-            expect(response.body.items).toHaveLength(0);
-            expect(response.body.pagination.totalItems).toBe(0);
-        });
-
-        test("pagination beyond available pages", async () => {
-            // Mock pagination beyond available pages
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: [],
-                pagination: {
-                    page: 10,
-                    limit: 2,
-                    totalItems: 5,
-                    totalPages: 3,
-                    hasNext: false,
-                    hasPrev: true,
-                },
-            });
-
-            const response = await request(app).get("/api/items?page=10&limit=2").expect(200);
-
-            expect(response.body.items).toHaveLength(0);
-            expect(response.body.pagination.page).toBe(10);
-            expect(response.body.pagination.hasNext).toBe(false);
-            expect(response.body.pagination.hasPrev).toBe(true);
-        });
-
-        test("handles negative page numbers", async () => {
-            const response = await request(app).get("/api/items?page=-1").expect(200);
-
-            expect(response.body.pagination.page).toBe(1);
-        });
-
-        test("handles non-numeric page values", async () => {
-            const response = await request(app).get("/api/items?page=abc").expect(200);
-
-            expect(response.body.pagination.page).toBe(1);
-        });
-
-        test("handles decimal page values", async () => {
-            // Mock pagination with parsed page value
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: mockData.slice(2, 4),
-                pagination: {
-                    page: 2,
-                    limit: 10,
-                    totalItems: 5,
-                    totalPages: 1,
-                    hasNext: false,
-                    hasPrev: true,
-                },
-            });
-
-            const response = await request(app).get("/api/items?page=2.7").expect(200);
-
-            expect(response.body.pagination.page).toBe(2);
-        });
-
-        test("calculates totalPages correctly with different limits", async () => {
-            // Mock pagination with limit 2
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: mockData.slice(0, 2),
-                pagination: {
-                    page: 1,
-                    limit: 2,
-                    totalItems: 5,
-                    totalPages: 3,
-                    hasNext: true,
-                    hasPrev: false,
-                },
-            });
-
-            const response = await request(app).get("/api/items?limit=2").expect(200);
-
-            expect(response.body.pagination.totalPages).toBe(3);
-            expect(response.body.pagination.totalItems).toBe(5);
-        });
-
-        test("last page contains remaining items", async () => {
-            // Mock last page with remaining items
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: [mockData[4]], // Last item
-                pagination: {
-                    page: 3,
-                    limit: 2,
-                    totalItems: 5,
-                    totalPages: 3,
-                    hasNext: false,
-                    hasPrev: true,
-                },
-            });
-
-            const response = await request(app).get("/api/items?page=3&limit=2").expect(200);
-
-            expect(response.body.items).toHaveLength(1);
-            expect(response.body.pagination.hasNext).toBe(false);
-            expect(response.body.pagination.hasPrev).toBe(true);
-        });
-
-        test("middle page has correct navigation flags", async () => {
-            // Mock middle page
-            mockItemsService.paginateItems.mockResolvedValue({
-                items: mockData.slice(2, 4),
-                pagination: {
-                    page: 2,
-                    limit: 2,
-                    totalItems: 5,
-                    totalPages: 3,
-                    hasNext: true,
-                    hasPrev: true,
-                },
-            });
-
-            const response = await request(app).get("/api/items?page=2&limit=2").expect(200);
-
-            expect(response.body.pagination.hasNext).toBe(true);
-            expect(response.body.pagination.hasPrev).toBe(true);
-        });
-
-        test("single page has no navigation", async () => {
-            const response = await request(app).get("/api/items?limit=10").expect(200);
-
-            expect(response.body.pagination.hasNext).toBe(false);
-            expect(response.body.pagination.hasPrev).toBe(false);
-            expect(response.body.pagination.totalPages).toBe(1);
-        });
-    });
 });

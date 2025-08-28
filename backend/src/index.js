@@ -12,8 +12,8 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // Initialize services with data path
-const DATA_PATH = process.env.DATA_PATH || path.join(__dirname, "../../data/items.json");
-const itemsService = createItemsService(DATA_PATH);
+const DB_PATH = path.join(__dirname, "../data/items.db");
+const itemsService = createItemsService(DB_PATH);
 const statsService = createStatsService(itemsService);
 
 app.use(cors({ origin: "http://localhost:3000" }));
@@ -33,8 +33,8 @@ getCookie();
 // Initialize services on startup
 async function startServer() {
     try {
-        await statsService.initialize();
         await itemsService.initialize();
+        await statsService.initialize();
         app.listen(port, () => console.log("Backend running on http://localhost:" + port));
     } catch (error) {
         console.error("Failed to initialize server:", error);

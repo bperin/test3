@@ -7,17 +7,13 @@ function createItemsRouter(itemsService, statsService) {
     // GET /api/items
     router.get("/", async (req, res, next) => {
         try {
-            const { limit = 10, page = 1, q } = req.query;
-
-            // Use service to search items
-            const results = await itemsService.searchItems(q);
-
-            // Use service to paginate results
-            const paginatedData = await itemsService.paginateItems(results, page, limit);
-
+            const { q, page = 1, limit = 10 } = req.query;
+            
+            // Use database-based pagination with optional search
+            const paginatedData = await itemsService.paginateItems(q, page, limit);
             res.json(paginatedData);
-        } catch (err) {
-            next(err);
+        } catch (error) {
+            next(error);
         }
     });
 

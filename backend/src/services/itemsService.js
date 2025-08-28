@@ -1,24 +1,18 @@
-const fs = require("fs").promises;
-const path = require("path");
+const DatabaseService = require('./databaseService');
 
 class ItemsService {
-    constructor(dataPath) {
-        this.dataPath = dataPath;
-        this.items = null;
+    constructor(dbPath) {
+        this.db = new DatabaseService(dbPath);
         this.isInitialized = false;
     }
 
     async initialize() {
         try {
-            const raw = await fs.readFile(this.dataPath, "utf8");
-            this.items = JSON.parse(raw);
+            await this.db.initialize();
             this.isInitialized = true;
-            console.log(`Items service initialized with ${this.items.length} items`);
         } catch (error) {
-            console.error("Error loading items data:", error);
-            this.items = [];
-            this.isInitialized = true;
-            console.log("Items service initialized with empty array");
+            console.error("Error initializing items service:", error);
+            throw error;
         }
     }
 
@@ -26,47 +20,57 @@ class ItemsService {
         if (!this.isInitialized) {
             throw new Error("Items service not initialized. Call initialize() first.");
         }
-        return [...this.items]; // Return a copy to prevent external mutations
+        return await this.db.getAllItems();
     }
 
     async getItemById(id) {
         if (!this.isInitialized) {
             throw new Error("Items service not initialized. Call initialize() first.");
         }
-        const item = this.items.find((i) => i.id === parseInt(id));
+        const item = await this.db.getItemById(parseInt(id));
         if (!item) {
             const error = new Error("Item not found");
             error.status = 404;
             throw error;
         }
-        return { ...item }; // Return a copy
+        return item;
     }
 
     async searchItems(query) {
         if (!this.isInitialized) {
             throw new Error("Items service not initialized. Call initialize() first.");
         }
-        if (!query) return [...this.items];
-
-        const searchTerm = query.toLowerCase();
-        return this.items.filter((item) => {
-            const nameMatch = item.name.toLowerCase().includes(searchTerm);
-            const categoryMatch = item.category.toLowerCase().includes(searchTerm);
-            return nameMatch || categoryMatch;
-        });
+        if (!query) {
+            return await this.db.getAllItems();
+        }
+        return await this.db.searchItems(query);
     }
 
-    async paginateItems(items, page = 1, limit = 10) {
+    async paginateItems(query, page = 1, limit = 10) {
+        if (!this.isInitialized) {
+            throw new Error("Items service not initialized. Call initialize() first.");
+        }
+
         const pageNum = Math.max(1, parseInt(page) || 1);
         const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 10));
         const offset = (pageNum - 1) * limitNum;
-        const totalItems = items.length;
+
+        let items, totalItems;
+
+        if (query) {
+            // Search with pagination
+            items = await this.db.searchItems(query, limitNum, offset);
+            totalItems = await this.db.getSearchCount(query);
+        } else {
+            // Get all with pagination
+            items = await this.db.getAllItems(limitNum, offset);
+            totalItems = await this.db.getItemCount();
+        }
+
         const totalPages = Math.ceil(totalItems / limitNum);
 
-        const paginatedResults = items.slice(offset, offset + limitNum);
-
         return {
-            items: paginatedResults,
+            items,
             pagination: {
                 page: pageNum,
                 limit: limitNum,
@@ -105,30 +109,12 @@ class ItemsService {
         }
 
         const item = {
-            id: Date.now(),
             name: name.trim(),
             category: category.trim(),
             price: Number(price),
         };
 
-        // Add to in-memory array
-        this.items.push(item);
-
-        return { ...item }; // Return a copy
-    }
-
-    // Optional: Persist current state to file (for data safety)
-    async persistToFile() {
-        if (!this.isInitialized) {
-            throw new Error("Items service not initialized. Call initialize() first.");
-        }
-        try {
-            await fs.writeFile(this.dataPath, JSON.stringify(this.items, null, 2), "utf8");
-            console.log("Items persisted to file");
-        } catch (error) {
-            console.error("Error persisting items data:", error);
-            throw new Error("Failed to persist items data");
-        }
+        return await this.db.createItem(item);
     }
 }
 
