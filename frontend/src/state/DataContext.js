@@ -72,14 +72,32 @@ export function DataProvider({ children }) {
                 signal: abortController?.signal,
             });
             const statsData = await res.json();
-
+            
             if (!abortController?.signal.aborted) {
                 setStats(statsData);
             }
-
+            
             return statsData;
         } catch (error) {
-            console.error("Failed to fetch stats:", error);
+            console.error('Failed to fetch stats:', error);
+            throw error;
+        }
+    }, []);
+
+    const fetchItemById = useCallback(async (id, abortController) => {
+        try {
+            const res = await fetch(`http://localhost:3001/api/items/${id}`, {
+                signal: abortController?.signal,
+            });
+            
+            if (!res.ok) {
+                throw new Error('Item not found');
+            }
+            
+            const itemData = await res.json();
+            return itemData;
+        } catch (error) {
+            console.error('Failed to fetch item:', error);
             throw error;
         }
     }, []);
@@ -92,9 +110,10 @@ export function DataProvider({ children }) {
                 stats,
                 loading,
                 posting,
-                fetchItems,
-                postItem,
+                fetchItems, 
+                postItem, 
                 fetchStats,
+                fetchItemById,
             }}
         >
             {children}
