@@ -61,7 +61,13 @@ function getStatsService() {
     return statsServiceInstance;
 }
 
+// Test helper to reset singleton
+function __resetSingleton() {
+    statsServiceInstance = null;
+}
+
 module.exports = {
     createStatsService,
     getStatsService,
+    __resetSingleton,
 };

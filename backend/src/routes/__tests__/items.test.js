@@ -1,20 +1,22 @@
 const request = require("supertest");
 const express = require("express");
-const fs = require("fs").promises;
-const path = require("path");
-const itemsRouter = require("../items");
+const createItemsRouter = require("../items");
 
-// Mock fs module
-jest.mock("fs", () => ({
-    promises: {
-        readFile: jest.fn(),
-        writeFile: jest.fn(),
-    },
-}));
+// Mock services
+const mockItemsService = {
+    searchItems: jest.fn(),
+    paginateItems: jest.fn(),
+    getItemById: jest.fn(),
+    createItem: jest.fn(),
+};
+
+const mockStatsService = {
+    invalidateCache: jest.fn(),
+};
 
 const app = express();
 app.use(express.json());
-app.use("/api/items", itemsRouter);
+app.use("/api/items", createItemsRouter(mockItemsService, mockStatsService));
 
 // Error handler
 app.use((err, req, res, next) => {
@@ -32,8 +34,19 @@ const mockData = [
 describe("Items API Routes", () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        fs.readFile.mockResolvedValue(JSON.stringify(mockData));
-        fs.writeFile.mockResolvedValue();
+        mockItemsService.searchItems.mockResolvedValue(mockData);
+        mockItemsService.paginateItems.mockResolvedValue({
+            items: mockData,
+            pagination: {
+                page: 1,
+                limit: 10,
+                totalItems: 5,
+                totalPages: 1,
+                hasNext: false,
+                hasPrev: false,
+            },
+        });
+        mockStatsService.invalidateCache.mockResolvedValue();
     });
 
     describe("GET /api/items", () => {
@@ -51,6 +64,8 @@ describe("Items API Routes", () => {
                 hasNext: false,
                 hasPrev: false,
             });
+            expect(mockItemsService.searchItems).toHaveBeenCalledWith(undefined);
+            expect(mockItemsService.paginateItems).toHaveBeenCalledWith(mockData, "1", "10");
         });
 
         test("applies pagination correctly", async () => {

@@ -113,7 +113,7 @@ class ItemsService {
 
         // Add to in-memory array
         this.items.push(item);
-        
+
         return { ...item }; // Return a copy
     }
 
@@ -149,7 +149,13 @@ function getItemsService() {
     return itemsServiceInstance;
 }
 
+// Test helper to reset singleton
+function __resetSingleton() {
+    itemsServiceInstance = null;
+}
+
 module.exports = {
     createItemsService,
-    getItemsService
+    getItemsService,
+    __resetSingleton,
 };
