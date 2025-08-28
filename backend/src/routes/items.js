@@ -22,12 +22,14 @@ router.get('/', async (req, res, next) => {
     const { limit = 10, page = 1, q } = req.query;
     let results = data;
 
-    // Apply search filter first
+    // Apply search filter first (optimized)
     if (q) {
-      results = results.filter(item => 
-        item.name.toLowerCase().includes(q.toLowerCase()) ||
-        item.category.toLowerCase().includes(q.toLowerCase())
-      );
+      const searchTerm = q.toLowerCase();
+      results = results.filter(item => {
+        const nameMatch = item.name.toLowerCase().includes(searchTerm);
+        const categoryMatch = item.category.toLowerCase().includes(searchTerm);
+        return nameMatch || categoryMatch;
+      });
     }
 
     // Calculate pagination
@@ -75,10 +77,29 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/items
 router.post('/', async (req, res, next) => {
   try {
-    // TODO: Validate payload (intentional omission)
-    const item = req.body;
+    const { name, category, price } = req.body;
+
+    // Validate required fields
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ error: 'Name is required and must be a non-empty string' });
+    }
+    
+    if (!category || typeof category !== 'string' || category.trim().length === 0) {
+      return res.status(400).json({ error: 'Category is required and must be a non-empty string' });
+    }
+    
+    if (price === undefined || price === null || typeof price !== 'number' || price < 0) {
+      return res.status(400).json({ error: 'Price is required and must be a non-negative number' });
+    }
+
+    const item = {
+      id: Date.now(),
+      name: name.trim(),
+      category: category.trim(),
+      price: Number(price)
+    };
+
     const data = await readData();
-    item.id = Date.now();
     data.push(item);
     await writeData(data);
     res.status(201).json(item);
