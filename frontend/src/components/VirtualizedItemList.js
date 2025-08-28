@@ -7,9 +7,17 @@ const ItemRow = ({ item }) => (
     <Link to={`/items/${item.id}`} className="block text-primary hover:text-primary/80 font-medium text-base no-underline">
         <div className="p-3 border-b border-border flex items-center justify-between hover:bg-muted/50 transition-colors h-full">
             <div className="flex items-center gap-3">
-                <span className="font-semibold">{item.name}</span>
+                <span className="font-semibold">
+                    {item.name
+                        .split(" ")
+                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                        .join(" ")}
+                </span>
                 <Badge variant="secondary" className="text-xs">
-                    {item.category}
+                    {item.category
+                        .split(" ")
+                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                        .join(" ")}
                 </Badge>
             </div>
             <div className="flex flex-col items-end">

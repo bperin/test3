@@ -39,14 +39,16 @@ describe("Items Component", () => {
         useData.mockReturnValue(defaultMockData);
     });
 
-    test("renders loading state initially", () => {
+    test("renders loading skeletons", () => {
         useData.mockReturnValue({
             ...defaultMockData,
             loading: true,
+            items: [],
         });
 
         renderWithRouter(<Items />);
-        expect(screen.getByText("Loading...")).toBeInTheDocument();
+        const skeletons = screen.getAllByRole("status"); // Skeletons have role="status"
+        expect(skeletons.length).toBeGreaterThan(0);
     });
 
     test("renders empty state when no items", () => {
