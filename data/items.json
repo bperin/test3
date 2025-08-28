@@ -1,7 +1,62 @@
 [
-    { "id": 1, "name": "Laptop Pro", "category": "Electronics", "price": 2499 },
-    { "id": 2, "name": "Noise Cancelling Headphones", "category": "Electronics", "price": 399 },
-    { "id": 3, "name": "Ultra‑Wide Monitor", "category": "Electronics", "price": 999 },
-    { "id": 4, "name": "Ergonomic Chair", "category": "Furniture", "price": 799 },
-    { "id": 5, "name": "Standing Desk", "category": "Furniture", "price": 1199 }
+    {
+        "id": 1,
+        "name": "Mouse 26",
+        "category": "Electronics",
+        "price": 130
+    },
+    {
+        "id": 2,
+        "name": "Lamp 42",
+        "category": "Furniture",
+        "price": 1104
+    },
+    {
+        "id": 3,
+        "name": "Headphones 4",
+        "category": "Electronics",
+        "price": 128
+    },
+    {
+        "id": 4,
+        "name": "Laptop 56",
+        "category": "Electronics",
+        "price": 799
+    },
+    {
+        "id": 5,
+        "name": "Shoes 88",
+        "category": "Sports",
+        "price": 322
+    },
+    {
+        "id": 6,
+        "name": "Desk 50",
+        "category": "Furniture",
+        "price": 1830
+    },
+    {
+        "id": 7,
+        "name": "Cookbook 24",
+        "category": "Books",
+        "price": 1653
+    },
+    {
+        "id": 8,
+        "name": "Shorts 17",
+        "category": "Clothing",
+        "price": 926
+    },
+    {
+        "id": 9,
+        "name": "Helmet 99",
+        "category": "Sports",
+        "price": 1352
+    },
+    {
+        "id": 10,
+        "name": "Sofa 26",
+        "category": "Furniture",
+        "price": 826
+    }
 ]

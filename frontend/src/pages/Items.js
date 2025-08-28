@@ -1,27 +1,51 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useData } from "../state/DataContext";
 import { Link } from "react-router-dom";
 import VirtualizedItemList from "../components/VirtualizedItemList";
 import AddItemForm from "../components/AddItemForm";
 import { Button } from "../components/ui/button.jsx";
 import { Input } from "../components/ui/input.jsx";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card.jsx";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../components/ui/card.jsx";
 import { Skeleton } from "../components/ui/skeleton.jsx";
 import { Search, X, Plus } from "lucide-react";
 
 function Items() {
     const { items, pagination, loading, fetchItems } = useData();
+    const [allItems, setAllItems] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState("");
     const [searchInput, setSearchInput] = useState("");
     const [showAddForm, setShowAddForm] = useState(false);
+    const [hasNextPage, setHasNextPage] = useState(false);
+    const [isNextPageLoading, setIsNextPageLoading] = useState(false);
+
+    // Update allItems when new items are fetched
+    useEffect(() => {
+        if (items && items.length > 0) {
+            if (currentPage === 1) {
+                // First page or new search - replace all items
+                setAllItems(items);
+            } else {
+                // Subsequent pages - append to existing items
+                setAllItems(prev => [...prev, ...items]);
+            }
+        }
+        
+        // Update pagination state
+        if (pagination) {
+            setHasNextPage(pagination.hasNext);
+        }
+        
+        setIsNextPageLoading(false);
+    }, [items, pagination, currentPage]);
 
     useEffect(() => {
         const abortController = new AbortController();
 
         const fetchData = async () => {
             try {
-                await fetchItems(abortController, currentPage, 10, searchQuery);
+                await fetchItems(abortController, 1, 20, searchQuery);
+                setCurrentPage(1);
             } catch (err) {
                 if (err.name !== "AbortError") {
                     console.error(err);
@@ -34,7 +58,23 @@ function Items() {
         return () => {
             abortController.abort();
         };
-    }, [fetchItems, currentPage, searchQuery]);
+    }, [searchQuery, fetchItems]);
+
+    // Load next page for infinite scroll
+    const loadNextPage = useCallback(async () => {
+        if (hasNextPage && !isNextPageLoading) {
+            setIsNextPageLoading(true);
+            const nextPage = currentPage + 1;
+            setCurrentPage(nextPage);
+            
+            try {
+                await fetchItems(new AbortController(), nextPage, 20, searchQuery);
+            } catch (err) {
+                console.error(err);
+                setIsNextPageLoading(false);
+            }
+        }
+    }, [hasNextPage, isNextPageLoading, currentPage, searchQuery, fetchItems]);
 
     const handleSearch = (e) => {
         e.preventDefault();
@@ -128,45 +168,19 @@ function Items() {
                         </div>
                     )}
 
-                    {!loading && items.length === 0 && (
+                    {!loading && allItems.length === 0 && (
                         <div className="text-center py-12">
                             <p className="text-muted-foreground text-lg">No items found{searchQuery ? ` for "${searchQuery}"` : ""}.</p>
                         </div>
                     )}
 
-                    {items.length > 0 && (
-                        <>
-                            <VirtualizedItemList items={items} height={400} />
-
-                            {pagination && (
-                                <div className="mt-6 space-y-4">
-                                    <div className="text-center text-sm text-muted-foreground">
-                                        Page {pagination.page} of {pagination.totalPages} ({pagination.totalItems} total items)
-                                    </div>
-
-                                    <div className="flex justify-center items-center gap-2">
-                                        <Button variant="outline" onClick={() => handlePageChange(currentPage - 1)} disabled={!pagination.hasPrev || loading}>
-                                            Previous
-                                        </Button>
-
-                                        {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                                            const pageNum = Math.max(1, currentPage - 2) + i;
-                                            if (pageNum > pagination.totalPages) return null;
-
-                                            return (
-                                                <Button key={pageNum} variant={pageNum === currentPage ? "default" : "outline"} onClick={() => handlePageChange(pageNum)} disabled={loading} size="sm">
-                                                    {pageNum}
-                                                </Button>
-                                            );
-                                        })}
-
-                                        <Button variant="outline" onClick={() => handlePageChange(currentPage + 1)} disabled={!pagination.hasNext || loading}>
-                                            Next
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-                        </>
+                    {allItems.length > 0 && (
+                        <VirtualizedItemList 
+                            items={allItems}
+                            hasNextPage={hasNextPage}
+                            isNextPageLoading={isNextPageLoading}
+                            loadNextPage={loadNextPage}
+                        />
                     )}
                 </CardContent>
             </Card>

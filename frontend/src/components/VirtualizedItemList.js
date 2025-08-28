@@ -1,11 +1,32 @@
-import React from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { FixedSizeList as List } from "react-window";
+import InfiniteLoader from "react-window-infinite-loader";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 
 const ItemRow = ({ index, style, data }) => {
-    const item = data[index];
+    const { items, isItemLoaded, loadMoreItems } = data;
+    const item = items[index];
+    
+    // Show loading placeholder if item hasn't loaded yet
+    if (!isItemLoaded(index)) {
+        return (
+            <div style={style}>
+                <div className="p-3 border-b border-border flex items-center justify-between animate-pulse">
+                    <div className="flex items-center gap-3">
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                        <div className="h-3 bg-gray-200 rounded w-16"></div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                        <div className="h-4 bg-gray-200 rounded w-12"></div>
+                        <div className="h-3 bg-gray-200 rounded w-16"></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div style={style}>
             <Link to={`/items/${item.id}`} className="block text-primary hover:text-primary/80 font-medium text-base no-underline">
@@ -34,7 +55,35 @@ const ItemRow = ({ index, style, data }) => {
     );
 };
 
-const VirtualizedItemList = ({ items, height = 400 }) => {
+const VirtualizedItemList = ({ 
+    items = [], 
+    height, 
+    hasNextPage = false, 
+    isNextPageLoading = false, 
+    loadNextPage 
+}) => {
+    const [listHeight, setListHeight] = useState(600);
+
+    useEffect(() => {
+        if (height && typeof height === 'number') {
+            setListHeight(height);
+        } else {
+            const viewportHeight = window.innerHeight;
+            const calculatedHeight = viewportHeight - 300;
+            setListHeight(calculatedHeight);
+        }
+    }, [height]);
+
+    // If there are more items to be loaded then add an extra row to hold a loading indicator.
+    const itemCount = hasNextPage ? items.length + 1 : items.length;
+
+    // Only load 1 page of items at a time.
+    // Pass an empty callback to InfiniteLoader in case it asks us to load more than once.
+    const loadMoreItems = isNextPageLoading ? () => {} : loadNextPage;
+
+    // Every row is loaded except for our loading indicator row.
+    const isItemLoaded = useCallback((index) => !!items[index], [items]);
+
     if (!items || items.length === 0) {
         return (
             <Card>
@@ -49,15 +98,29 @@ const VirtualizedItemList = ({ items, height = 400 }) => {
         <Card>
             <CardContent className="p-0">
                 <div className="border-t">
-                    <List
-                        height={height}
-                        itemCount={items.length}
-                        itemSize={80} // Height of each item row
-                        itemData={items}
-                        width="100%"
+                    <InfiniteLoader
+                        isItemLoaded={isItemLoaded}
+                        itemCount={itemCount}
+                        loadMoreItems={loadMoreItems}
                     >
-                        {ItemRow}
-                    </List>
+                        {({ onItemsRendered, ref }) => (
+                            <List
+                                ref={ref}
+                                height={listHeight}
+                                itemCount={itemCount}
+                                itemSize={80}
+                                itemData={{
+                                    items,
+                                    isItemLoaded,
+                                    loadMoreItems
+                                }}
+                                onItemsRendered={onItemsRendered}
+                                width="100%"
+                            >
+                                {ItemRow}
+                            </List>
+                        )}
+                    </InfiniteLoader>
                 </div>
             </CardContent>
         </Card>

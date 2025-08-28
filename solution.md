@@ -314,3 +314,70 @@ async upsertItem(item) {
 ```
 
 Alternatively, we could have chosen to error out if an item with the same name already exists. This would be a valid design choice, but the upsert logic is more robust for this particular application.
+
+## Virtualized List with Infinite Scroll
+
+### Performance Enhancement
+
+Added `react-window` virtualization with infinite scroll to handle large datasets efficiently:
+
+**Problem**: With 250+ items, rendering all DOM elements at once causes performance issues and memory bloat.
+
+**Solution**: Implemented virtualized rendering that only renders visible items plus a small buffer.
+
+```javascript
+// VirtualizedItemList.js - Only renders visible items
+<InfiniteLoader
+    isItemLoaded={isItemLoaded}
+    itemCount={itemCount}
+    loadMoreItems={loadMoreItems}
+>
+    {({ onItemsRendered, ref }) => (
+        <List
+            ref={ref}
+            height={listHeight}
+            itemCount={itemCount}
+            itemSize={80}
+            itemData={{ items, isItemLoaded, loadMoreItems }}
+            onItemsRendered={onItemsRendered}
+        >
+            {ItemRow}
+        </List>
+    )}
+</InfiniteLoader>
+```
+
+### Infinite Scroll Implementation
+
+**Key Features**:
+- **Automatic loading**: Fetches next page when scrolling near bottom
+- **Loading indicators**: Shows skeleton UI for items being fetched
+- **State management**: Accumulates items across pages instead of replacing
+- **Search integration**: Resets scroll state on new searches
+
+```javascript
+// Items.js - Infinite scroll state management
+const loadNextPage = useCallback(async () => {
+    if (hasNextPage && !isNextPageLoading) {
+        setIsNextPageLoading(true);
+        const nextPage = currentPage + 1;
+        setCurrentPage(nextPage);
+        
+        await fetchItems(new AbortController(), nextPage, 20, searchQuery);
+    }
+}, [hasNextPage, isNextPageLoading, currentPage, searchQuery, fetchItems]);
+```
+
+**Performance Benefits**:
+- **Memory efficient**: Only 10-15 DOM elements rendered regardless of dataset size
+- **Smooth scrolling**: No lag with large datasets
+- **Progressive loading**: Data fetched on-demand as user scrolls
+- **Responsive UI**: Loading states prevent jarring content jumps
+
+**UX Improvements**:
+- **Seamless experience**: No pagination buttons to click
+- **Visual feedback**: Skeleton loading states during fetch
+- **Full viewport usage**: List takes available screen height
+- **Search compatibility**: Infinite scroll resets properly on new searches
+
+This implementation scales efficiently from dozens to thousands of items while maintaining smooth user experience.
