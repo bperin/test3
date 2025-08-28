@@ -113,7 +113,7 @@ class DatabaseService {
 
     async getAllItems(limit = null, offset = 0) {
         return new Promise((resolve, reject) => {
-            let query = "SELECT * FROM items ORDER BY id";
+            let query = "SELECT * FROM items ORDER BY created_at DESC, id DESC";
             const params = [];
 
             if (limit) {
@@ -142,7 +142,7 @@ class DatabaseService {
             let sql = `
                 SELECT * FROM items 
                 WHERE name LIKE ? OR category LIKE ? 
-                ORDER BY id
+                ORDER BY created_at DESC, id DESC
             `;
             const params = [`%${query}%`, `%${query}%`];
 

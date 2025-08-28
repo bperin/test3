@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef, useImperativeHandle, forwardRef } from "react";
 import { Link } from "react-router-dom";
 import { FixedSizeList as List } from "react-window";
 import InfiniteLoader from "react-window-infinite-loader";
@@ -8,7 +8,7 @@ import { Badge } from "./ui/badge";
 const ItemRow = ({ index, style, data }) => {
     const { items, isItemLoaded, loadMoreItems } = data;
     const item = items[index];
-    
+
     // Show loading placeholder if item hasn't loaded yet
     if (!isItemLoaded(index)) {
         return (
@@ -55,17 +55,12 @@ const ItemRow = ({ index, style, data }) => {
     );
 };
 
-const VirtualizedItemList = ({ 
-    items = [], 
-    height, 
-    hasNextPage = false, 
-    isNextPageLoading = false, 
-    loadNextPage 
-}) => {
+const VirtualizedItemList = forwardRef(({ items = [], height, hasNextPage = false, isNextPageLoading = false, loadNextPage }, ref) => {
     const [listHeight, setListHeight] = useState(600);
+    const listRef = useRef();
 
     useEffect(() => {
-        if (height && typeof height === 'number') {
+        if (height && typeof height === "number") {
             setListHeight(height);
         } else {
             const viewportHeight = window.innerHeight;
@@ -84,6 +79,24 @@ const VirtualizedItemList = ({
     // Every row is loaded except for our loading indicator row.
     const isItemLoaded = useCallback((index) => !!items[index], [items]);
 
+    // Expose scroll methods to parent component
+    useImperativeHandle(
+        ref,
+        () => ({
+            scrollToBottom: () => {
+                if (listRef.current && items.length > 0) {
+                    listRef.current.scrollToItem(items.length - 1, "end");
+                }
+            },
+            scrollToTop: () => {
+                if (listRef.current) {
+                    listRef.current.scrollToItem(0, "start");
+                }
+            },
+        }),
+        [items.length]
+    );
+
     if (!items || items.length === 0) {
         return (
             <Card>
@@ -98,21 +111,20 @@ const VirtualizedItemList = ({
         <Card>
             <CardContent className="p-0">
                 <div className="border-t">
-                    <InfiniteLoader
-                        isItemLoaded={isItemLoaded}
-                        itemCount={itemCount}
-                        loadMoreItems={loadMoreItems}
-                    >
-                        {({ onItemsRendered, ref }) => (
+                    <InfiniteLoader isItemLoaded={isItemLoaded} itemCount={itemCount} loadMoreItems={loadMoreItems}>
+                        {({ onItemsRendered, ref: infiniteLoaderRef }) => (
                             <List
-                                ref={ref}
+                                ref={(node) => {
+                                    listRef.current = node;
+                                    infiniteLoaderRef(node);
+                                }}
                                 height={listHeight}
                                 itemCount={itemCount}
                                 itemSize={80}
                                 itemData={{
                                     items,
                                     isItemLoaded,
-                                    loadMoreItems
+                                    loadMoreItems,
                                 }}
                                 onItemsRendered={onItemsRendered}
                                 width="100%"
@@ -125,6 +137,6 @@ const VirtualizedItemList = ({
             </CardContent>
         </Card>
     );
-};
+});
 
 export default VirtualizedItemList;

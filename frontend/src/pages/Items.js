@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useData } from "../state/DataContext";
-import { Link } from "react-router-dom";
 import VirtualizedItemList from "../components/VirtualizedItemList";
 import AddItemForm from "../components/AddItemForm";
 import { Button } from "../components/ui/button.jsx";
@@ -18,6 +17,7 @@ function Items() {
     const [showAddForm, setShowAddForm] = useState(false);
     const [hasNextPage, setHasNextPage] = useState(false);
     const [isNextPageLoading, setIsNextPageLoading] = useState(false);
+    const listRef = useRef();
 
     // Update allItems when new items are fetched
     useEffect(() => {
@@ -27,15 +27,15 @@ function Items() {
                 setAllItems(items);
             } else {
                 // Subsequent pages - append to existing items
-                setAllItems(prev => [...prev, ...items]);
+                setAllItems((prev) => [...prev, ...items]);
             }
         }
-        
+
         // Update pagination state
         if (pagination) {
             setHasNextPage(pagination.hasNext);
         }
-        
+
         setIsNextPageLoading(false);
     }, [items, pagination, currentPage]);
 
@@ -66,7 +66,7 @@ function Items() {
             setIsNextPageLoading(true);
             const nextPage = currentPage + 1;
             setCurrentPage(nextPage);
-            
+
             try {
                 await fetchItems(new AbortController(), nextPage, 20, searchQuery);
             } catch (err) {
@@ -76,6 +76,27 @@ function Items() {
         }
     }, [hasNextPage, isNextPageLoading, currentPage, searchQuery, fetchItems]);
 
+    const handleItemAdded = useCallback(
+        async (newItem) => {
+            // Refresh the data to get the updated list (newest items first)
+            try {
+                await fetchItems(new AbortController(), 1, 20, searchQuery);
+                setCurrentPage(1);
+                setShowAddForm(false);
+
+                // Scroll to top after a short delay to see the new item
+                setTimeout(() => {
+                    if (listRef.current) {
+                        listRef.current.scrollToTop();
+                    }
+                }, 100);
+            } catch (error) {
+                console.error("Error refreshing items after add:", error);
+            }
+        },
+        [fetchItems, searchQuery]
+    );
+
     const handleSearch = (e) => {
         e.preventDefault();
         setSearchQuery(searchInput);
@@ -84,12 +105,6 @@ function Items() {
 
     const handlePageChange = (newPage) => {
         setCurrentPage(newPage);
-    };
-
-    const handleItemAdded = (newItem) => {
-        // Refresh the items list after adding a new item
-        fetchItems(new AbortController(), currentPage, 10, searchQuery);
-        setShowAddForm(false);
     };
 
     if (loading && !items.length) {
@@ -174,14 +189,7 @@ function Items() {
                         </div>
                     )}
 
-                    {allItems.length > 0 && (
-                        <VirtualizedItemList 
-                            items={allItems}
-                            hasNextPage={hasNextPage}
-                            isNextPageLoading={isNextPageLoading}
-                            loadNextPage={loadNextPage}
-                        />
-                    )}
+                    {allItems.length > 0 && <VirtualizedItemList ref={listRef} items={allItems} hasNextPage={hasNextPage} isNextPageLoading={isNextPageLoading} loadNextPage={loadNextPage} />}
                 </CardContent>
             </Card>
         </div>
