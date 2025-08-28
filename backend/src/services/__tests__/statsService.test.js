@@ -104,16 +104,17 @@ describe("StatsService", () => {
         });
 
         test("updates lastUpdated timestamp", async () => {
-            const beforeTime = new Date().toISOString();
+            const beforeTime = new Date().getTime();
             
             await new Promise(resolve => setTimeout(resolve, 1)); // Small delay to ensure different timestamp
             await statsService.refreshStats();
             
             const stats = statsService.getStats();
-            const afterTime = new Date().toISOString();
+            const afterTime = new Date().getTime();
+            const statsTime = new Date(stats.lastUpdated).getTime();
             
-            expect(stats.lastUpdated).toBeGreaterThanOrEqual(beforeTime);
-            expect(stats.lastUpdated).toBeLessThanOrEqual(afterTime);
+            expect(statsTime).toBeGreaterThanOrEqual(beforeTime);
+            expect(statsTime).toBeLessThanOrEqual(afterTime);
         });
     });
 

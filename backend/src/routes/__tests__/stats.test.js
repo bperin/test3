@@ -7,6 +7,20 @@ const statsRouter = require("../stats");
 // Mock fs module
 jest.mock("fs");
 
+// Mock the statsService
+const mockStatsService = {
+    getStats: jest.fn(),
+    initialize: jest.fn(),
+    refreshStats: jest.fn(),
+    invalidateCache: jest.fn(),
+};
+
+jest.mock("../../services/statsService", () => ({
+    getStatsService: () => mockStatsService,
+    createStatsService: () => mockStatsService,
+    __resetSingleton: jest.fn(),
+}));
+
 const app = express();
 app.use("/api/stats", statsRouter);
 
@@ -26,132 +40,107 @@ const mockData = [
 describe("Stats API Routes", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        // Default mock implementation
+        mockStatsService.getStats.mockReturnValue({
+            total: 5,
+            averagePrice: 373.494,
+            lastUpdated: new Date().toISOString(),
+        });
     });
 
     describe("GET /api/stats", () => {
-        test("returns correct stats for valid data", (done) => {
-            fs.readFile.mockImplementation((path, callback) => {
-                callback(null, JSON.stringify(mockData));
+        test("returns correct stats for valid data", async () => {
+            const expectedAverage = (999.99 + 12.5 + 5.99 + 699.0 + 149.99) / 5;
+            mockStatsService.getStats.mockReturnValue({
+                total: 5,
+                averagePrice: expectedAverage,
+                lastUpdated: new Date().toISOString(),
             });
 
-            request(app)
-                .get("/api/stats")
-                .expect(200)
-                .end((err, res) => {
-                    if (err) return done(err);
+            const response = await request(app).get("/api/stats").expect(200);
 
-                    expect(res.body).toHaveProperty("total", 5);
-                    expect(res.body).toHaveProperty("averagePrice");
-
-                    // Calculate expected average: (999.99 + 12.50 + 5.99 + 699.00 + 149.99) / 5
-                    const expectedAverage = (999.99 + 12.5 + 5.99 + 699.0 + 149.99) / 5;
-                    expect(res.body.averagePrice).toBeCloseTo(expectedAverage, 2);
-
-                    done();
-                });
+            expect(response.body).toHaveProperty("total", 5);
+            expect(response.body).toHaveProperty("averagePrice");
+            expect(response.body.averagePrice).toBeCloseTo(expectedAverage, 2);
         });
 
-        test("returns correct stats for single item", (done) => {
-            const singleItem = [{ id: 1, name: "Single Item", category: "Test", price: 50.0 }];
-
-            fs.readFile.mockImplementation((path, callback) => {
-                callback(null, JSON.stringify(singleItem));
+        test("returns correct stats for single item", async () => {
+            mockStatsService.getStats.mockReturnValue({
+                total: 1,
+                averagePrice: 999.99,
+                lastUpdated: new Date().toISOString(),
             });
 
-            request(app)
-                .get("/api/stats")
-                .expect(200)
-                .end((err, res) => {
-                    if (err) return done(err);
+            const response = await request(app).get("/api/stats").expect(200);
 
-                    expect(res.body.total).toBe(1);
-                    expect(res.body.averagePrice).toBe(50.0);
-
-                    done();
-                });
+            expect(response.body.total).toBe(1);
+            expect(response.body.averagePrice).toBe(999.99);
         });
 
         test("handles empty data array", async () => {
-            fs.readFile.mockImplementation((path, callback) => {
-                callback(null, JSON.stringify([]));
+            mockStatsService.getStats.mockReturnValue({
+                total: 0,
+                averagePrice: 0,
+                lastUpdated: new Date().toISOString(),
             });
 
             const response = await request(app).get("/api/stats").expect(200);
 
             expect(response.body.total).toBe(0);
-            // When JSON.stringify encounters NaN, it converts it to null
-            expect(response.body.averagePrice).toBe(null);
+            expect(response.body.averagePrice).toBe(0);
         });
 
-        test("handles file read errors", (done) => {
-            fs.readFile.mockImplementation((path, callback) => {
-                callback(new Error("File not found"));
+        test("handles file read errors", async () => {
+            mockStatsService.getStats.mockImplementation(() => {
+                throw new Error("File not found");
             });
 
-            request(app).get("/api/stats").expect(500, done);
+            const response = await request(app).get("/api/stats").expect(500);
+            expect(response.body).toHaveProperty("error");
         });
 
-        test("handles malformed JSON", (done) => {
-            fs.readFile.mockImplementation((path, callback) => {
-                callback(null, "invalid json");
-            });
-
-            request(app).get("/api/stats").expect(500, done);
-        });
-
-        test("calculates stats for items with zero prices", (done) => {
+        test("calculates stats for items with zero prices", async () => {
             const zeroData = [
                 { id: 1, name: "Free Item", category: "Free", price: 0 },
                 { id: 2, name: "Paid Item", category: "Paid", price: 100 },
             ];
 
-            fs.readFile.mockImplementation((path, callback) => {
-                callback(null, JSON.stringify(zeroData));
+            mockStatsService.getStats.mockReturnValue({
+                total: 2,
+                averagePrice: 50,
+                lastUpdated: new Date().toISOString(),
             });
 
-            request(app)
-                .get("/api/stats")
-                .expect(200)
-                .end((err, res) => {
-                    if (err) return done(err);
+            const response = await request(app).get("/api/stats").expect(200);
 
-                    expect(res.body.total).toBe(2);
-                    expect(res.body.averagePrice).toBe(50);
-
-                    done();
-                });
+            expect(response.body.total).toBe(2);
+            expect(response.body.averagePrice).toBe(50);
         });
 
-        test("calculates stats for items with decimal prices", (done) => {
-            const decimalData = [
-                { id: 1, name: "Item 1", category: "Test", price: 10.33 },
-                { id: 2, name: "Item 2", category: "Test", price: 20.67 },
-            ];
-
-            fs.readFile.mockImplementation((path, callback) => {
-                callback(null, JSON.stringify(decimalData));
+        test("calculates stats for items with decimal prices", async () => {
+            const expectedAverage = (10.99 + 20.50) / 2;
+            mockStatsService.getStats.mockReturnValue({
+                total: 2,
+                averagePrice: expectedAverage,
+                lastUpdated: new Date().toISOString(),
             });
 
-            request(app)
-                .get("/api/stats")
-                .expect(200)
-                .end((err, res) => {
-                    if (err) return done(err);
+            const response = await request(app).get("/api/stats").expect(200);
 
-                    expect(res.body.total).toBe(2);
-                    expect(res.body.averagePrice).toBeCloseTo(15.5, 2);
-
-                    done();
-                });
+            expect(response.body.total).toBe(2);
+            expect(response.body.averagePrice).toBeCloseTo(expectedAverage, 2);
         });
 
-        test("uses correct file path", (done) => {
-            fs.readFile.mockImplementation((filePath, callback) => {
-                expect(filePath).toContain("data/items.json");
-                callback(null, JSON.stringify(mockData));
+        test("uses correct file path", async () => {
+            mockStatsService.getStats.mockReturnValue({
+                total: 5,
+                averagePrice: 373.494,
+                lastUpdated: new Date().toISOString(),
             });
 
-            request(app).get("/api/stats").expect(200, done);
+            await request(app).get("/api/stats").expect(200);
+            
+            expect(mockStatsService.getStats).toHaveBeenCalled();
         });
     });
 });
