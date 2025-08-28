@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useData } from '../state/DataContext';
 import { Link } from 'react-router-dom';
+import VirtualizedItemList from '../components/VirtualizedItemList';
 
 function Items() {
   const { items, pagination, loading, fetchItems } = useData();
@@ -11,11 +12,17 @@ function Items() {
   useEffect(() => {
     const abortController = new AbortController();
 
-    fetchItems(abortController, currentPage, 10, searchQuery).catch(err => {
-      if (err.name !== 'AbortError') {
-        console.error(err);
+    const fetchData = async () => {
+      try {
+        await fetchItems(abortController, currentPage, 10, searchQuery);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error(err);
+        }
       }
-    });
+    };
+
+    fetchData();
 
     return () => {
       abortController.abort();
@@ -68,15 +75,8 @@ function Items() {
 
       {items.length > 0 && (
         <>
-          <ul>
-            {items.map(item => (
-              <li key={item.id}>
-                <Link to={'/items/' + item.id}>
-                  {item.name} - {item.category} (${item.price})
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {/* Always use virtualization for consistent performance */}
+          <VirtualizedItemList items={items} height={400} />
 
           {pagination && (
             <div style={{ marginTop: '20px', textAlign: 'center' }}>
